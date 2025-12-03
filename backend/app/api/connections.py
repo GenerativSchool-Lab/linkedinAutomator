@@ -1,0 +1,171 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from app.database import get_db, SessionLocal
+from app.models.profile import Profile
+from app.models.connection import Connection, ConnectionStatus
+from app.models.message import Message, MessageType
+from app.services.linkedin import linkedin_service
+from app.services.message_generator import message_generator
+from app.config import settings
+from pydantic import BaseModel
+import asyncio
+
+router = APIRouter()
+
+
+class ConnectionResponse(BaseModel):
+    id: int
+    profile_id: int
+    profile_name: str
+    profile_url: str
+    status: str
+    connected_at: Optional[str]
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class StartConnectionRequest(BaseModel):
+    profile_ids: Optional[List[int]] = None  # If None, process all pending profiles
+
+
+async def process_connection(profile_id: int):
+    """Background task to process a single connection"""
+    db = SessionLocal()
+    try:
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if not profile:
+            return
+
+        # Check if connection already exists
+        existing = db.query(Connection).filter(Connection.profile_id == profile_id).first()
+        if existing and existing.status == ConnectionStatus.CONNECTED:
+            return
+
+        # Create or update connection
+        if not existing:
+            connection = Connection(
+                profile_id=profile_id,
+                status=ConnectionStatus.CONNECTING
+            )
+            db.add(connection)
+            db.commit()
+            db.refresh(connection)
+        else:
+            connection = existing
+            connection.status = ConnectionStatus.CONNECTING
+            db.commit()
+
+        # Generate message
+        message_content = message_generator.generate_connection_message(profile)
+
+        # Send connection request
+        await asyncio.sleep(settings.rate_limit_delay)
+        success = await linkedin_service.send_connection_request(profile.linkedin_url, message_content)
+
+        if success:
+            # Create message record
+            message = Message(
+                connection_id=connection.id,
+                content=message_content,
+                message_type=MessageType.INITIAL
+            )
+            db.add(message)
+            db.commit()
+            db.refresh(message)
+
+            connection.connection_message_id = message.id
+            connection.status = ConnectionStatus.CONNECTED
+            connection.connected_at = db.query(Message).filter(Message.id == message.id).first().sent_at
+        else:
+            connection.status = ConnectionStatus.FAILED
+
+        db.commit()
+    except Exception as e:
+        print(f"Error processing connection for profile {profile_id}: {e}")
+        if 'connection' in locals():
+            connection.status = ConnectionStatus.FAILED
+            db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/start")
+async def start_connections(
+    request: StartConnectionRequest,
+    db: Session = Depends(get_db)
+):
+    """Start connection process for profiles"""
+    if request.profile_ids:
+        profiles = db.query(Profile).filter(Profile.id.in_(request.profile_ids)).all()
+    else:
+        # Get all profiles without connections or with failed connections
+        profiles = db.query(Profile).outerjoin(Connection).filter(
+            (Connection.id == None) | (Connection.status == ConnectionStatus.FAILED)
+        ).all()
+
+    if not profiles:
+        return {"message": "No profiles to process"}
+
+    # Process connections in background
+    # Note: We need to run async tasks properly
+    for profile in profiles:
+        asyncio.create_task(process_connection(profile.id))
+
+    return {
+        "message": f"Started connection process for {len(profiles)} profiles",
+        "profiles_count": len(profiles)
+    }
+
+
+@router.get("", response_model=List[ConnectionResponse])
+def get_connections(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get list of connections"""
+    query = db.query(Connection).join(Profile)
+
+    if status:
+        try:
+            status_enum = ConnectionStatus(status)
+            query = query.filter(Connection.status == status_enum)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+
+    connections = query.all()
+
+    result = []
+    for conn in connections:
+        result.append(ConnectionResponse(
+            id=conn.id,
+            profile_id=conn.profile_id,
+            profile_name=conn.profile.name,
+            profile_url=conn.profile.linkedin_url,
+            status=conn.status.value,
+            connected_at=conn.connected_at.isoformat() if conn.connected_at else None,
+            created_at=conn.created_at.isoformat() if conn.created_at else None
+        ))
+
+    return result
+
+
+@router.get("/{connection_id}", response_model=ConnectionResponse)
+def get_connection(connection_id: int, db: Session = Depends(get_db)):
+    """Get a single connection by ID"""
+    connection = db.query(Connection).filter(Connection.id == connection_id).first()
+    if not connection:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    return ConnectionResponse(
+        id=connection.id,
+        profile_id=connection.profile_id,
+        profile_name=connection.profile.name,
+        profile_url=connection.profile.linkedin_url,
+        status=connection.status.value,
+        connected_at=connection.connected_at.isoformat() if connection.connected_at else None,
+        created_at=connection.created_at.isoformat() if connection.created_at else None
+    )
+

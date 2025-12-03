@@ -1,0 +1,22 @@
+# Vercel ignore for frontend directory
+# This ensures only necessary files are deployed
+
+# Development files
+.env*.local
+.vercel
+
+# Build artifacts (will be regenerated)
+.next/
+out/
+build/
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Documentation
+*.md
+!README.md
+

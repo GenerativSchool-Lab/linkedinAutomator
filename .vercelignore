@@ -1,0 +1,11 @@
+# Ignore everything except frontend
+backend/
+*.md
+!README.md
+.git/
+.env*
+test_api.sh
+setup_railway.sh
+RAILWAY_*.md
+DEPLOYMENT_*.md
+
