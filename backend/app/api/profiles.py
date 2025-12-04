@@ -106,7 +106,7 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
                     name = "Unknown"
 
             # Get optional fields with proper null handling
-            def safe_str(value, col_name):
+            def safe_str(col_name):
                 if not col_name:
                     return None
                 val = row.get(col_name)
@@ -118,10 +118,10 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
             profile = Profile(
                 linkedin_url=linkedin_url,
                 name=name,
-                company=safe_str(None, company_col),
-                title=safe_str(None, title_col),
-                notes=safe_str(None, notes_col),
-                tags=safe_str(None, tags_col),
+                company=safe_str(company_col),
+                title=safe_str(title_col),
+                notes=safe_str(notes_col),
+                tags=safe_str(tags_col),
             )
             db.add(profile)
             profiles_created += 1
