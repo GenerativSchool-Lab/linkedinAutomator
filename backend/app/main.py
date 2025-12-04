@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app.api import profiles, connections, messages, stats, settings
 from app.services.scheduler import start_scheduler
+# Import models to ensure they're registered with SQLAlchemy
+from app.models import Profile, Connection, Message, FollowUp, AppSettings
 
 # Create tables
 Base.metadata.create_all(bind=engine)
