@@ -69,33 +69,77 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
 
     for idx, row in df.iterrows():
         try:
-            linkedin_url = str(row[url_col]).strip()
-            if not linkedin_url or linkedin_url == 'nan':
+            # Get URL value and validate
+            url_value = row[url_col] if url_col else None
+            if pd.isna(url_value) or not url_value:
+                errors.append(f"Row {idx + 1}: Missing LinkedIn URL")
+                continue
+
+            linkedin_url = str(url_value).strip()
+            if not linkedin_url or linkedin_url.lower() in ['nan', 'none', 'null', '']:
+                errors.append(f"Row {idx + 1}: Invalid LinkedIn URL")
                 continue
 
             # Ensure URL format
             if not linkedin_url.startswith('http'):
-                linkedin_url = f"https://www.linkedin.com/in/{linkedin_url.replace('linkedin.com/in/', '').strip('/')}"
+                # Extract username from URL if it's just a username
+                username = linkedin_url.replace('linkedin.com/in/', '').replace('www.linkedin.com/in/', '').strip('/')
+                linkedin_url = f"https://www.linkedin.com/in/{username}"
+
+            # Validate URL length (database constraint)
+            if len(linkedin_url) > 500:  # Reasonable max length
+                errors.append(f"Row {idx + 1}: URL too long")
+                continue
 
             # Check if profile already exists
             existing = db.query(Profile).filter(Profile.linkedin_url == linkedin_url).first()
             if existing:
-                continue
+                continue  # Skip duplicates silently
+
+            # Get name with proper handling
+            name_value = row[name_col] if name_col else None
+            if pd.isna(name_value) or not name_value:
+                name = "Unknown"
+            else:
+                name = str(name_value).strip()
+                if not name or name.lower() in ['nan', 'none', 'null']:
+                    name = "Unknown"
+
+            # Get optional fields with proper null handling
+            def safe_str(value, col_name):
+                if not col_name:
+                    return None
+                val = row.get(col_name)
+                if pd.isna(val) or not val:
+                    return None
+                str_val = str(val).strip()
+                return str_val if str_val and str_val.lower() not in ['nan', 'none', 'null', ''] else None
 
             profile = Profile(
                 linkedin_url=linkedin_url,
-                name=str(row[name_col]).strip() if name_col and pd.notna(row.get(name_col)) else "Unknown",
-                company=str(row[company_col]).strip() if company_col and pd.notna(row.get(company_col)) else None,
-                title=str(row[title_col]).strip() if title_col and pd.notna(row.get(title_col)) else None,
-                notes=str(row[notes_col]).strip() if notes_col and pd.notna(row.get(notes_col)) else None,
-                tags=str(row[tags_col]).strip() if tags_col and pd.notna(row.get(tags_col)) else None,
+                name=name,
+                company=safe_str(None, company_col),
+                title=safe_str(None, title_col),
+                notes=safe_str(None, notes_col),
+                tags=safe_str(None, tags_col),
             )
             db.add(profile)
             profiles_created += 1
+            
+            # Commit in batches to avoid large transactions
+            if profiles_created % 50 == 0:
+                db.commit()
         except Exception as e:
             errors.append(f"Row {idx + 1}: {str(e)}")
+            db.rollback()  # Rollback on error to avoid partial commits
+            continue
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        errors.append(f"Database error during commit: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save profiles: {str(e)}")
 
     return {
         "message": f"Successfully imported {profiles_created} profiles",
