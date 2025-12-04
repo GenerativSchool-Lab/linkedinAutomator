@@ -12,28 +12,29 @@ class MessageGenerator:
         self.client = Mistral(api_key=settings.mistral_api_key)
 
     def generate_connection_message(self, profile: Profile) -> str:
-        """Generate a personalized connection message"""
-        prompt = f"""Generate a professional, personalized LinkedIn connection request message (max 300 characters) for:
+        """Generate a personalized connection message in French"""
+        prompt = f"""Génère un message de demande de connexion LinkedIn professionnel et personnalisé (max 300 caractères) en français pour:
 
-Name: {profile.name}
-Title: {profile.title or 'Not specified'}
-Company: {profile.company or 'Not specified'}
-Notes: {profile.notes or 'None'}
+Nom: {profile.name}
+Titre: {profile.title or 'Non spécifié'}
+Entreprise: {profile.company or 'Non spécifiée'}
+Notes: {profile.notes or 'Aucune'}
 
-The message should be:
-- Professional but friendly
-- Personalized based on their profile
-- Brief and engaging
-- Not overly salesy
-- Under 300 characters
+Le message doit être:
+- Professionnel mais amical
+- Personnalisé selon leur profil
+- Court et engageant
+- Pas trop commercial
+- En français
+- Moins de 300 caractères
 
-Return only the message text, no additional commentary."""
+Retourne uniquement le texte du message, sans commentaire supplémentaire."""
 
         try:
             response = self.client.chat.complete(
                 model="mistral-medium-latest",
                 messages=[
-                    {"role": "system", "content": "You are a professional networking assistant that creates personalized LinkedIn connection messages."},
+                    {"role": "system", "content": "Tu es un assistant de networking professionnel qui crée des messages de demande de connexion LinkedIn personnalisés en français."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=200,
@@ -46,32 +47,33 @@ Return only the message text, no additional commentary."""
             return self._fallback_connection_message(profile)
 
     def generate_followup_message(self, profile: Profile, previous_messages: list[Message]) -> str:
-        """Generate a follow-up message based on conversation history"""
+        """Generate a follow-up message in French based on conversation history"""
         previous_content = "\n".join([f"- {msg.content}" for msg in previous_messages])
         
-        prompt = f"""Generate a professional LinkedIn follow-up message (max 300 characters) for:
+        prompt = f"""Génère un message de suivi LinkedIn professionnel (max 300 caractères) en français pour:
 
-Name: {profile.name}
-Title: {profile.title or 'Not specified'}
-Company: {profile.company or 'Not specified'}
+Nom: {profile.name}
+Titre: {profile.title or 'Non spécifié'}
+Entreprise: {profile.company or 'Non spécifiée'}
 
-Previous messages sent:
+Messages précédents envoyés:
 {previous_content}
 
-The follow-up should be:
-- Professional and friendly
-- Reference the previous connection/message
-- Provide value or ask a thoughtful question
-- Not pushy or salesy
-- Under 300 characters
+Le message de suivi doit être:
+- Professionnel et amical
+- Faire référence à la connexion/message précédent
+- Apporter de la valeur ou poser une question pertinente
+- Pas trop insistant ou commercial
+- En français
+- Moins de 300 caractères
 
-Return only the message text, no additional commentary."""
+Retourne uniquement le texte du message, sans commentaire supplémentaire."""
 
         try:
             response = self.client.chat.complete(
                 model="mistral-medium-latest",
                 messages=[
-                    {"role": "system", "content": "You are a professional networking assistant that creates personalized LinkedIn follow-up messages."},
+                    {"role": "system", "content": "Tu es un assistant de networking professionnel qui crée des messages de suivi LinkedIn personnalisés en français."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=200,
@@ -84,14 +86,16 @@ Return only the message text, no additional commentary."""
             return self._fallback_followup_message(profile)
 
     def _fallback_connection_message(self, profile: Profile) -> str:
-        """Fallback template message"""
+        """Fallback template message in French"""
+        first_name = profile.name.split()[0] if profile.name and ' ' in profile.name else (profile.name if profile.name else 'Bonjour')
         if profile.company:
-            return f"Hi {profile.name.split()[0] if profile.name else 'there'}, I noticed your work at {profile.company} and thought we might have some mutual interests. Would love to connect!"
-        return f"Hi {profile.name.split()[0] if profile.name else 'there'}, I'd like to connect and learn more about your experience. Looking forward to connecting!"
+            return f"Bonjour {first_name}, j'ai remarqué votre travail chez {profile.company} et je pense que nous pourrions avoir des intérêts communs. J'aimerais beaucoup nous connecter !"
+        return f"Bonjour {first_name}, j'aimerais me connecter et en apprendre davantage sur votre expérience. Au plaisir de vous connecter !"
 
     def _fallback_followup_message(self, profile: Profile) -> str:
-        """Fallback follow-up template"""
-        return f"Hi {profile.name.split()[0] if profile.name else 'there'}, I wanted to follow up on my previous message. Would love to hear your thoughts when you have a moment!"
+        """Fallback follow-up template in French"""
+        first_name = profile.name.split()[0] if profile.name and ' ' in profile.name else (profile.name if profile.name else 'Bonjour')
+        return f"Bonjour {first_name}, je souhaitais faire un suivi sur mon message précédent. J'aimerais beaucoup avoir votre avis quand vous aurez un moment !"
 
 
 # Lazy initialization - only create when needed
