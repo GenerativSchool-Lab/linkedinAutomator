@@ -87,8 +87,22 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_followups_id'), 'followups', ['id'], unique=False)
 
+    # Create app_settings table
+    op.create_table('app_settings',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('company_name', sa.String(), nullable=True),
+    sa.Column('company_description', sa.Text(), nullable=True),
+    sa.Column('value_proposition', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_app_settings_id'), 'app_settings', ['id'], unique=False)
+
 
 def downgrade() -> None:
+    op.drop_index(op.f('ix_app_settings_id'), table_name='app_settings')
+    op.drop_table('app_settings')
     op.drop_index(op.f('ix_followups_id'), table_name='followups')
     op.drop_table('followups')
     op.drop_index(op.f('ix_messages_id'), table_name='messages')
