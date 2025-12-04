@@ -156,6 +156,15 @@ def get_connections(
 
     result = []
     for conn in connections:
+        # Get the initial connection message if it exists
+        connection_message = None
+        connection_message_sent_at = None
+        if conn.connection_message_id:
+            message = db.query(Message).filter(Message.id == conn.connection_message_id).first()
+            if message:
+                connection_message = message.content
+                connection_message_sent_at = message.sent_at.isoformat() if message.sent_at else None
+        
         result.append(ConnectionResponse(
             id=conn.id,
             profile_id=conn.profile_id,
@@ -163,7 +172,9 @@ def get_connections(
             profile_url=conn.profile.linkedin_url,
             status=conn.status.value,
             connected_at=conn.connected_at.isoformat() if conn.connected_at else None,
-            created_at=conn.created_at.isoformat() if conn.created_at else None
+            created_at=conn.created_at.isoformat() if conn.created_at else None,
+            connection_message=connection_message,
+            connection_message_sent_at=connection_message_sent_at
         ))
 
     return result
