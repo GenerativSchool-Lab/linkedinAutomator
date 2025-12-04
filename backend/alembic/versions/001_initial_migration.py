@@ -40,6 +40,7 @@ def upgrade() -> None:
     sa.Column('status', sa.Enum('PENDING', 'CONNECTING', 'CONNECTED', 'FAILED', 'REJECTED', name='connectionstatus'), nullable=False),
     sa.Column('connected_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('connection_message_id', sa.Integer(), nullable=True),
+    sa.Column('failure_reason', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['profile_id'], ['profiles.id'], ),

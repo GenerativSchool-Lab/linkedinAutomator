@@ -21,6 +21,7 @@ class Connection(Base):
     status = Column(SQLEnum(ConnectionStatus), default=ConnectionStatus.PENDING, nullable=False)
     connected_at = Column(DateTime(timezone=True), nullable=True)
     connection_message_id = Column(Integer, ForeignKey("messages.id"), nullable=True)
+    failure_reason = Column(String, nullable=True)  # Detailed reason for failure
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

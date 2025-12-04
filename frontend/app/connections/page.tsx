@@ -106,7 +106,16 @@ export default function ConnectionsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={connection.status} />
+                      <div className="space-y-1">
+                        <StatusBadge status={connection.status} />
+                        {connection.status === 'failed' && connection.failure_reason && (
+                          <div className="text-xs text-red-600 mt-1" title={connection.failure_reason}>
+                            {connection.failure_reason.length > 50
+                              ? `${connection.failure_reason.substring(0, 50)}...`
+                              : connection.failure_reason}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       {connection.connection_message ? (

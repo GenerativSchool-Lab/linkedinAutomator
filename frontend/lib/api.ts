@@ -22,6 +22,7 @@ export interface Connection {
   created_at: string
   connection_message: string | null
   connection_message_sent_at: string | null
+  failure_reason: string | null
 }
 
 export interface Message {

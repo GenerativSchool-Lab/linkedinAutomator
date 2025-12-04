@@ -107,14 +107,28 @@ class LinkedInService:
             else:
                 raise Exception("Not logged in and no credentials provided")
 
-    async def send_connection_request(self, profile_url: str, message: str) -> bool:
-        """Send a connection request with a message"""
+    async def send_connection_request(self, profile_url: str, message: str) -> tuple[bool, str | None]:
+        """
+        Send a connection request with a message
+        
+        Returns:
+            Tuple of (success: bool, failure_reason: str | None)
+        """
         await self.ensure_logged_in()
         
         try:
             # Navigate to profile
             await self.page.goto(profile_url)
             await asyncio.sleep(3)
+
+            # Check if already connected (Message button indicates connection)
+            if await self.page.query_selector('button:has-text("Message")'):
+                return (True, None)  # Already connected, consider it success
+            
+            # Check for "Pending" status
+            pending_indicator = await self.page.query_selector('button:has-text("Pending"), span:has-text("Pending")')
+            if pending_indicator:
+                return (False, "Connection request already pending")
 
             # Look for Connect button
             connect_button = await self.page.query_selector('button:has-text("Connect")')
@@ -123,13 +137,30 @@ class LinkedInService:
                 connect_button = await self.page.query_selector('button[aria-label*="Connect"]')
             
             if not connect_button:
-                # Check if already connected
-                if await self.page.query_selector('button:has-text("Message")'):
-                    return True  # Already connected
-                raise Exception("Connect button not found")
+                # Check for "Follow" button (can't connect, only follow)
+                follow_button = await self.page.query_selector('button:has-text("Follow")')
+                if follow_button:
+                    return (False, "Profile only allows following, not connecting")
+                
+                # Check if profile is restricted
+                restricted = await self.page.query_selector('.profile-unavailable, .restricted-profile')
+                if restricted:
+                    return (False, "Profile is restricted or unavailable")
+                
+                return (False, "Connect button not found - profile may be restricted or connection not available")
 
             await connect_button.click()
             await asyncio.sleep(2)
+
+            # Check if a modal appeared asking for connection type
+            # Sometimes LinkedIn asks "How do you know this person?"
+            modal = await self.page.query_selector('.artdeco-modal, .connection-request-modal')
+            if modal:
+                # Try to close or select "I don't know" option
+                close_button = await self.page.query_selector('button[aria-label*="Dismiss"], button:has-text("Skip")')
+                if close_button:
+                    await close_button.click()
+                    await asyncio.sleep(1)
 
             # Look for "Add a note" button or message field
             add_note = await self.page.query_selector('button:has-text("Add a note")')
@@ -145,6 +176,9 @@ class LinkedInService:
             if message_field:
                 await message_field.fill(message)
                 await asyncio.sleep(1)
+            else:
+                # Message field not found, but connection might still work
+                print("Warning: Message field not found, but continuing...")
 
             # Click Send button
             send_button = await self.page.query_selector('button:has-text("Send")')
@@ -154,13 +188,28 @@ class LinkedInService:
             if send_button:
                 await send_button.click()
                 await asyncio.sleep(2)
-                return True
+                
+                # Check if there was an error message
+                error_message = await self.page.query_selector('.artdeco-inline-feedback--error, .error-message')
+                if error_message:
+                    error_text = await error_message.text_content()
+                    return (False, f"LinkedIn error: {error_text.strip()}")
+                
+                return (True, None)
             else:
-                raise Exception("Send button not found")
+                return (False, "Send button not found")
 
         except Exception as e:
-            print(f"Error sending connection request: {e}")
-            return False
+            error_msg = str(e)
+            # Categorize common errors
+            if "login" in error_msg.lower() or "authentication" in error_msg.lower():
+                return (False, "Login/authentication failed")
+            elif "timeout" in error_msg.lower() or "network" in error_msg.lower():
+                return (False, "Network timeout or connection error")
+            elif "not found" in error_msg.lower():
+                return (False, f"Profile or element not found: {error_msg}")
+            else:
+                return (False, f"Error: {error_msg}")
 
     async def send_message(self, profile_url: str, message: str) -> bool:
         """Send a message to an existing connection"""

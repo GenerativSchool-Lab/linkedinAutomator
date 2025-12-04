@@ -24,6 +24,7 @@ class ConnectionResponse(BaseModel):
     created_at: str
     connection_message: Optional[str] = None
     connection_message_sent_at: Optional[str] = None
+    failure_reason: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -80,7 +81,7 @@ async def process_connection(profile_id: int):
 
         # Send connection request
         await asyncio.sleep(settings.rate_limit_delay)
-        success = await linkedin_service.send_connection_request(profile.linkedin_url, message_content)
+        success, failure_reason = await linkedin_service.send_connection_request(profile.linkedin_url, message_content)
 
         if success:
             # Create message record
@@ -95,15 +96,27 @@ async def process_connection(profile_id: int):
 
             connection.connection_message_id = message.id
             connection.status = ConnectionStatus.CONNECTED
+            connection.failure_reason = None  # Clear any previous failure reason
             connection.connected_at = db.query(Message).filter(Message.id == message.id).first().sent_at
         else:
             connection.status = ConnectionStatus.FAILED
+            connection.failure_reason = failure_reason or "Unknown error"
 
         db.commit()
     except Exception as e:
         print(f"Error processing connection for profile {profile_id}: {e}")
         if 'connection' in locals():
             connection.status = ConnectionStatus.FAILED
+            error_msg = str(e)
+            # Categorize the error
+            if "login" in error_msg.lower():
+                connection.failure_reason = "Login/authentication failed"
+            elif "timeout" in error_msg.lower():
+                connection.failure_reason = "Network timeout"
+            elif "profile" in error_msg.lower() and "not found" in error_msg.lower():
+                connection.failure_reason = "Profile not found or inaccessible"
+            else:
+                connection.failure_reason = f"Error: {error_msg[:200]}"  # Limit length
             db.commit()
     finally:
         db.close()
@@ -174,7 +187,8 @@ def get_connections(
             connected_at=conn.connected_at.isoformat() if conn.connected_at else None,
             created_at=conn.created_at.isoformat() if conn.created_at else None,
             connection_message=connection_message,
-            connection_message_sent_at=connection_message_sent_at
+            connection_message_sent_at=connection_message_sent_at,
+            failure_reason=conn.failure_reason
         ))
 
     return result
@@ -205,6 +219,7 @@ def get_connection(connection_id: int, db: Session = Depends(get_db)):
         connected_at=connection.connected_at.isoformat() if connection.connected_at else None,
         created_at=connection.created_at.isoformat() if connection.created_at else None,
         connection_message=connection_message,
-        connection_message_sent_at=connection_message_sent_at
+        connection_message_sent_at=connection_message_sent_at,
+        failure_reason=connection.failure_reason
     )
 
