@@ -37,22 +37,20 @@ export function CSVUpload({ onUploadComplete }: CSVUploadProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <label htmlFor="csv-upload" className="cursor-pointer">
-          <span className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-            {uploading ? 'Uploading...' : 'Upload CSV'}
-          </span>
-        </label>
-        <input
-          id="csv-upload"
-          type="file"
-          accept=".csv"
-          onChange={handleFileChange}
-          className="hidden"
-          disabled={uploading}
-        />
-      </div>
+    <div className="space-y-2">
+      <label htmlFor="csv-upload" className="cursor-pointer inline-block">
+        <Button variant="outline" disabled={uploading} type="button">
+          {uploading ? 'Uploading...' : '📤 Upload CSV'}
+        </Button>
+      </label>
+      <input
+        id="csv-upload"
+        type="file"
+        accept=".csv"
+        onChange={handleFileChange}
+        className="hidden"
+        disabled={uploading}
+      />
       {result && (
         <div className={`p-4 rounded-md ${result.profiles_created > 0 ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
           <p className="font-medium">{result.message}</p>
