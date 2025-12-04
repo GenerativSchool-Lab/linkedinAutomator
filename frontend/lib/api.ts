@@ -176,6 +176,33 @@ export async function sendFollowUp(connection_id: number): Promise<{ message: st
   }
 }
 
+export async function scrapeLinkedInSearch(
+  search_url: string,
+  max_results: number = 50
+): Promise<{ message: string; profiles_created: number; errors: string[] }> {
+  try {
+    const response = await fetch(`${API_URL}/api/profiles/scrape`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ search_url, max_results }),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to scrape LinkedIn search: ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to scrape LinkedIn search')
+  }
+}
+
 
 
 

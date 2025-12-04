@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import pandas as pd
@@ -6,6 +6,7 @@ import io
 from app.database import get_db
 from app.models.profile import Profile
 from app.models.connection import Connection
+from app.services.linkedin import linkedin_service
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -24,6 +25,11 @@ class ProfileResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ScrapeSearchRequest(BaseModel):
+    search_url: str
+    max_results: int = 50
 
 
 @router.post("/upload")
@@ -247,6 +253,79 @@ def get_profile(profile_id: int, db: Session = Depends(get_db)):
         created_at=profile.created_at.isoformat() if profile.created_at else None,
         connection_status=connection.status.value if connection else None
     )
+
+
+@router.post("/scrape")
+async def scrape_linkedin_search(
+    request: ScrapeSearchRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Scrape LinkedIn search results and create profiles"""
+    # Validate URL
+    if not request.search_url or 'linkedin.com/search' not in request.search_url:
+        raise HTTPException(status_code=400, detail="Invalid LinkedIn search URL")
+    
+    if request.max_results < 1 or request.max_results > 100:
+        raise HTTPException(status_code=400, detail="max_results must be between 1 and 100")
+    
+    try:
+        # Scrape profiles from search results
+        scraped_profiles = await linkedin_service.scrape_search_results(
+            request.search_url,
+            max_results=request.max_results
+        )
+        
+        if not scraped_profiles:
+            return {
+                "message": "No profiles found in search results",
+                "profiles_created": 0,
+                "errors": []
+            }
+        
+        profiles_created = 0
+        errors = []
+        
+        for profile_data in scraped_profiles:
+            try:
+                linkedin_url = profile_data.get('linkedin_url')
+                if not linkedin_url:
+                    continue
+                
+                # Normalize URL
+                if not linkedin_url.startswith('http'):
+                    linkedin_url = f"https://www.linkedin.com{linkedin_url}"
+                
+                # Check if profile already exists
+                existing = db.query(Profile).filter(Profile.linkedin_url == linkedin_url).first()
+                if existing:
+                    continue
+                
+                # Create new profile
+                profile = Profile(
+                    linkedin_url=linkedin_url,
+                    name=profile_data.get('name', 'Unknown'),
+                    company=profile_data.get('company'),
+                    title=profile_data.get('title'),
+                )
+                db.add(profile)
+                profiles_created += 1
+                
+            except Exception as e:
+                errors.append(f"Error creating profile {profile_data.get('name', 'Unknown')}: {str(e)}")
+                continue
+        
+        db.commit()
+        
+        return {
+            "message": f"Successfully scraped and imported {profiles_created} profiles",
+            "profiles_created": profiles_created,
+            "errors": errors
+        }
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error scraping LinkedIn search: {str(e)}")
 
 
 

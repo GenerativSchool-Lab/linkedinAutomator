@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { StatsCard } from '@/components/StatsCard'
 import { CSVUpload } from '@/components/CSVUpload'
+import { LinkedInScraper } from '@/components/LinkedInScraper'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { Button } from '@/components/ui/button'
 import { getStats, startConnections, getProfiles } from '@/lib/api'
@@ -149,6 +150,7 @@ export default function Dashboard() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <ConnectionStatus refreshInterval={10} />
+        <LinkedInScraper onScrapeComplete={fetchStats} />
       </div>
 
       <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md">

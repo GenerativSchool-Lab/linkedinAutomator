@@ -2,7 +2,7 @@ import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 from cryptography.fernet import Fernet
 from app.config import settings
@@ -205,6 +205,116 @@ class LinkedInService:
         except Exception as e:
             print(f"Error sending message: {e}")
             return False
+
+    async def scrape_search_results(self, search_url: str, max_results: int = 50) -> List[dict]:
+        """
+        Scrape LinkedIn search results page and extract profile information
+        
+        Args:
+            search_url: LinkedIn search URL (e.g., https://www.linkedin.com/search/results/people/...)
+            max_results: Maximum number of profiles to scrape
+            
+        Returns:
+            List of dictionaries with profile information
+        """
+        await self.ensure_logged_in()
+        
+        profiles = []
+        try:
+            # Navigate to search URL
+            await self.page.goto(search_url)
+            await asyncio.sleep(3)
+            
+            # Wait for search results to load
+            await self.page.wait_for_selector('.reusable-search__result-container', timeout=10000)
+            await asyncio.sleep(2)
+            
+            # Scroll to load more results
+            scroll_count = 0
+            max_scrolls = max_results // 10  # LinkedIn shows ~10 results per scroll
+            
+            while len(profiles) < max_results and scroll_count < max_scrolls:
+                # Get all result containers
+                result_containers = await self.page.query_selector_all('.reusable-search__result-container')
+                
+                for container in result_containers:
+                    if len(profiles) >= max_results:
+                        break
+                    
+                    try:
+                        # Extract profile link
+                        profile_link_elem = await container.query_selector('a.app-aware-link[href*="/in/"]')
+                        if not profile_link_elem:
+                            continue
+                        
+                        profile_url = await profile_link_elem.get_attribute('href')
+                        if not profile_url or '/in/' not in profile_url:
+                            continue
+                        
+                        # Make sure URL is complete
+                        if not profile_url.startswith('http'):
+                            profile_url = f"https://www.linkedin.com{profile_url.split('?')[0]}"
+                        else:
+                            profile_url = profile_url.split('?')[0]  # Remove query params
+                        
+                        # Extract name
+                        name_elem = await container.query_selector('.entity-result__title-text a, .search-result__result-link')
+                        name = "Unknown"
+                        if name_elem:
+                            name_text = await name_elem.text_content()
+                            if name_text:
+                                name = name_text.strip()
+                        
+                        # Extract title/headline
+                        title_elem = await container.query_selector('.entity-result__primary-subtitle, .search-result__snippets')
+                        title = None
+                        if title_elem:
+                            title_text = await title_elem.text_content()
+                            if title_text:
+                                title = title_text.strip()
+                        
+                        # Extract company (sometimes in subtitle)
+                        company = None
+                        if title and ' at ' in title:
+                            parts = title.split(' at ')
+                            if len(parts) > 1:
+                                title = parts[0].strip()
+                                company = parts[1].strip()
+                        
+                        # Skip if we already have this profile
+                        if any(p.get('linkedin_url') == profile_url for p in profiles):
+                            continue
+                        
+                        profiles.append({
+                            'linkedin_url': profile_url,
+                            'name': name,
+                            'title': title,
+                            'company': company,
+                        })
+                        
+                    except Exception as e:
+                        print(f"Error extracting profile from container: {e}")
+                        continue
+                
+                # Scroll down to load more results
+                if len(profiles) < max_results:
+                    await self.page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+                    await asyncio.sleep(2)
+                    scroll_count += 1
+                    
+                    # Check if we've reached the end
+                    try:
+                        end_indicator = await self.page.query_selector('.search-results__end-of-results')
+                        if end_indicator:
+                            break
+                    except:
+                        pass
+            
+            return profiles[:max_results]
+            
+        except Exception as e:
+            print(f"Error scraping search results: {e}")
+            return profiles
 
     async def close(self):
         """Close browser"""
