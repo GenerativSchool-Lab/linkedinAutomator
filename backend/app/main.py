@@ -11,18 +11,23 @@ app = FastAPI(title="LinkedIn Prospection Agent API", version="1.0.0")
 
 # CORS middleware
 from app.config import settings
+import os
 
 # Parse allowed origins from environment variable
 # When allow_credentials=True, we cannot use ["*"], so we need explicit origins
 if settings.allowed_origins == "*":
     # Default to allowing common origins for development
-    # In production, set ALLOWED_ORIGINS explicitly
+    # In production, set ALLOWED_ORIGINS explicitly via environment variable
+    # Also check for Vercel preview URLs dynamically
     allowed_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
         "https://linkedin-prospection-agent-byydlem7b-chyll.vercel.app",
-        "https://linkedin-prospection-agent-*.vercel.app",  # Pattern for preview deployments
     ]
+    # Add any additional Vercel URLs from environment if set
+    vercel_url = os.getenv("VERCEL_URL")
+    if vercel_url:
+        allowed_origins.append(f"https://{vercel_url}")
 else:
     # Parse comma-separated origins
     allowed_origins = [origin.strip() for origin in settings.allowed_origins.split(",")]
