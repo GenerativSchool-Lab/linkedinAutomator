@@ -20,22 +20,17 @@ import re
 # Parse allowed origins from environment variable
 # When allow_credentials=True, we cannot use ["*"], so we need explicit origins
 if settings.allowed_origins == "*":
-    # Default to allowing common origins for development
-    # In production, set ALLOWED_ORIGINS explicitly via environment variable
+    # Default to allowing common origins for development and production
     allowed_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "https://linkedin-prospection-agent-djy5zdbv9-chyll.vercel.app",
+        "https://linkedin-prospection-agent-cw0glxlj7-chyll.vercel.app",
+        "https://linkedin-prospection-agent-eituic75a-chyll.vercel.app",
+        "https://linkedin-prospection-agent-mukocvm6p-chyll.vercel.app",
+        "https://linkedin-prospection-agent-pwjhey86b-chyll.vercel.app",
+        "https://linkedin-prospection-agent-hr285ngf4-chyll.vercel.app",
     ]
-    # Add Vercel URLs - we'll use a regex pattern for dynamic matching
-    # But since FastAPI doesn't support regex directly, we'll add common patterns
-    # For production, set ALLOWED_ORIGINS env var with your specific Vercel URL
-    vercel_base = os.getenv("VERCEL_URL") or "linkedin-prospection-agent"
-    if vercel_base and not vercel_base.startswith("http"):
-        # Add common Vercel URL patterns
-        allowed_origins.extend([
-            f"https://{vercel_base}.vercel.app",
-            f"https://{vercel_base}-*.vercel.app",
-        ])
 else:
     # Parse comma-separated origins
     allowed_origins = [origin.strip() for origin in settings.allowed_origins.split(",")]
@@ -60,12 +55,12 @@ def is_origin_allowed(origin: str) -> bool:
     
     return False
 
-# Use a more permissive approach: allow all origins but validate in middleware
-# Since FastAPI CORS doesn't support dynamic validation easily, we'll use allow_origin_regex
+# Use a more permissive approach: allow all Vercel URLs via regex
+# This allows both production and preview deployments
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # Allow all Vercel preview URLs
+    allow_origin_regex=r"https://linkedin-prospection-agent.*\.vercel\.app",  # Allow all Vercel URLs for this project
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
