@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     followup_days: int = 7  # days to wait before follow-up
     secret_key: str = "your-secret-key-change-in-production"
     allowed_origins: str = "*"  # Comma-separated list of allowed origins, or "*" for all
+    company_name: Optional[str] = None  # Your company name
+    company_description: Optional[str] = None  # What your company does
+    value_proposition: Optional[str] = None  # Your value proposition for personalizing messages
     
     class Config:
         env_file = ".env"

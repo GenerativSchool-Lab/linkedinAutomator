@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db, SessionLocal
@@ -58,6 +58,21 @@ async def process_connection(profile_id: int):
             connection.status = ConnectionStatus.CONNECTING
             db.commit()
 
+        # Scrape profile details for better personalization
+        try:
+            profile_details = await linkedin_service.scrape_profile_details(profile.linkedin_url)
+            # Update profile with scraped details if available
+            if profile_details.get('headline') and not profile.title:
+                profile.title = profile_details.get('headline')
+            if profile_details.get('current_company') and not profile.company:
+                profile.company = profile_details.get('current_company')
+            if profile_details.get('about') and not profile.notes:
+                profile.notes = profile_details.get('about')[:500]  # Limit length
+            db.commit()
+        except Exception as e:
+            print(f"Error scraping profile details: {e}")
+            # Continue with existing profile data
+        
         # Generate message
         message_content = message_generator.generate_connection_message(profile)
 

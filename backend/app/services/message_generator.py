@@ -13,20 +13,32 @@ class MessageGenerator:
 
     def generate_connection_message(self, profile: Profile) -> str:
         """Generate a personalized connection message in French"""
+        # Build company context
+        company_context = ""
+        if settings.company_name:
+            company_context += f"\n\nÀ propos de notre entreprise ({settings.company_name}):"
+            if settings.company_description:
+                company_context += f"\n{settings.company_description}"
+            if settings.value_proposition:
+                company_context += f"\n\nNotre proposition de valeur: {settings.value_proposition}"
+        
         prompt = f"""Génère un message de demande de connexion LinkedIn professionnel et personnalisé (max 300 caractères) en français pour:
 
-Nom: {profile.name}
-Titre: {profile.title or 'Non spécifié'}
-Entreprise: {profile.company or 'Non spécifiée'}
-Notes: {profile.notes or 'Aucune'}
+Profil du contact:
+- Nom: {profile.name}
+- Titre: {profile.title or 'Non spécifié'}
+- Entreprise: {profile.company or 'Non spécifiée'}
+- Informations supplémentaires: {profile.notes or 'Aucune'}{company_context}
 
 Le message doit être:
 - Professionnel mais amical
-- Personnalisé selon leur profil
+- Personnalisé selon leur profil et leur contexte professionnel
+- Mentionner subtilement notre proposition de valeur si pertinente
 - Court et engageant
-- Pas trop commercial
+- Pas trop commercial ou pushy
 - En français
 - Moins de 300 caractères
+- Créer un lien naturel entre leur profil et notre entreprise
 
 Retourne uniquement le texte du message, sans commentaire supplémentaire."""
 
@@ -50,22 +62,33 @@ Retourne uniquement le texte du message, sans commentaire supplémentaire."""
         """Generate a follow-up message in French based on conversation history"""
         previous_content = "\n".join([f"- {msg.content}" for msg in previous_messages])
         
+        # Build company context
+        company_context = ""
+        if settings.company_name:
+            company_context += f"\n\nÀ propos de notre entreprise ({settings.company_name}):"
+            if settings.company_description:
+                company_context += f"\n{settings.company_description}"
+            if settings.value_proposition:
+                company_context += f"\n\nNotre proposition de valeur: {settings.value_proposition}"
+        
         prompt = f"""Génère un message de suivi LinkedIn professionnel (max 300 caractères) en français pour:
 
-Nom: {profile.name}
-Titre: {profile.title or 'Non spécifié'}
-Entreprise: {profile.company or 'Non spécifiée'}
+Profil du contact:
+- Nom: {profile.name}
+- Titre: {profile.title or 'Non spécifié'}
+- Entreprise: {profile.company or 'Non spécifiée'}
 
 Messages précédents envoyés:
-{previous_content}
+{previous_content}{company_context}
 
 Le message de suivi doit être:
 - Professionnel et amical
 - Faire référence à la connexion/message précédent
-- Apporter de la valeur ou poser une question pertinente
+- Apporter de la valeur ou poser une question pertinente liée à notre proposition de valeur
 - Pas trop insistant ou commercial
 - En français
 - Moins de 300 caractères
+- Créer un intérêt naturel pour notre entreprise sans être pushy
 
 Retourne uniquement le texte du message, sans commentaire supplémentaire."""
 

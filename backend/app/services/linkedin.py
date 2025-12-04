@@ -206,6 +206,102 @@ class LinkedInService:
             print(f"Error sending message: {e}")
             return False
 
+    async def scrape_profile_details(self, profile_url: str) -> dict:
+        """
+        Scrape detailed information from a LinkedIn profile page
+        
+        Args:
+            profile_url: Full LinkedIn profile URL
+            
+        Returns:
+            Dictionary with profile details (headline, about, experience, etc.)
+        """
+        await self.ensure_logged_in()
+        
+        try:
+            await self.page.goto(profile_url)
+            await asyncio.sleep(3)
+            
+            profile_data = {
+                'linkedin_url': profile_url,
+                'name': None,
+                'headline': None,
+                'about': None,
+                'location': None,
+                'current_company': None,
+                'current_title': None,
+                'experience': [],
+            }
+            
+            # Extract name
+            try:
+                name_elem = await self.page.query_selector('h1.text-heading-xlarge, h1.pv-text-details__left-panel h1')
+                if name_elem:
+                    name_text = await name_elem.text_content()
+                    if name_text:
+                        profile_data['name'] = name_text.strip()
+            except:
+                pass
+            
+            # Extract headline
+            try:
+                headline_elem = await self.page.query_selector('.text-body-medium.break-words, .pv-text-details__left-panel .text-body-medium')
+                if headline_elem:
+                    headline_text = await headline_elem.text_content()
+                    if headline_text:
+                        profile_data['headline'] = headline_text.strip()
+            except:
+                pass
+            
+            # Extract about section
+            try:
+                about_section = await self.page.query_selector('#about ~ .pvs-list, section[data-section="summary"]')
+                if about_section:
+                    about_text = await about_section.text_content()
+                    if about_text:
+                        profile_data['about'] = about_text.strip()[:500]  # Limit length
+            except:
+                pass
+            
+            # Extract location
+            try:
+                location_elem = await self.page.query_selector('.text-body-small.inline.t-black--light.break-words, .pv-text-details__left-panel .text-body-small')
+                if location_elem:
+                    location_text = await location_elem.text_content()
+                    if location_text:
+                        profile_data['location'] = location_text.strip()
+            except:
+                pass
+            
+            # Extract current experience
+            try:
+                experience_section = await self.page.query_selector('#experience ~ .pvs-list, section[data-section="experience"]')
+                if experience_section:
+                    # Get first (current) experience
+                    first_exp = await experience_section.query_selector('.pvs-list__item')
+                    if first_exp:
+                        # Extract title
+                        title_elem = await first_exp.query_selector('.mr1.t-bold span[aria-hidden="true"]')
+                        if title_elem:
+                            title_text = await title_elem.text_content()
+                            if title_text:
+                                profile_data['current_title'] = title_text.strip()
+                        
+                        # Extract company
+                        company_elem = await first_exp.query_selector('.t-14.t-normal span[aria-hidden="true"]')
+                        if company_elem:
+                            company_text = await company_elem.text_content()
+                            if company_text:
+                                profile_data['current_company'] = company_text.strip()
+            except:
+                pass
+            
+            return profile_data
+            
+        except Exception as e:
+            print(f"Error scraping profile details: {e}")
+            return {'linkedin_url': profile_url}
+
     async def scrape_search_results(self, search_url: str, max_results: int = 50) -> List[dict]:
         """
         Scrape LinkedIn search results page and extract profile information
