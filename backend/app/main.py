@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.api import profiles, connections, messages, stats
+from app.api import profiles, connections, messages, stats, settings
 from app.services.scheduler import start_scheduler
 
 # Create tables
@@ -73,6 +73,7 @@ app.include_router(profiles.router, prefix="/api/profiles", tags=["profiles"])
 app.include_router(connections.router, prefix="/api/connections", tags=["connections"])
 app.include_router(messages.router, prefix="/api/messages", tags=["messages"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
+app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 
 
 @app.on_event("startup")

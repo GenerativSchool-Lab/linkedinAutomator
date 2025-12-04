@@ -203,6 +203,52 @@ export async function scrapeLinkedInSearch(
   }
 }
 
+export interface Settings {
+  company_name: string | null
+  company_description: string | null
+  value_proposition: string | null
+}
+
+export async function getSettings(): Promise<Settings> {
+  try {
+    const response = await fetch(`${API_URL}/api/settings`)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to fetch settings: ${response.statusText}`)
+    }
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to fetch settings')
+  }
+}
+
+export async function updateSettings(settings: Settings): Promise<Settings> {
+  try {
+    const response = await fetch(`${API_URL}/api/settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(settings),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to update settings: ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to update settings')
+  }
+}
+
 
 
 

@@ -29,6 +29,7 @@ export default function RootLayout({
                 <Link href="/" className="hover:underline">Dashboard</Link>
                 <Link href="/profiles" className="hover:underline">Profiles</Link>
                 <Link href="/messages" className="hover:underline">Messages</Link>
+                <Link href="/settings" className="hover:underline">Settings</Link>
               </div>
             </div>
           </div>

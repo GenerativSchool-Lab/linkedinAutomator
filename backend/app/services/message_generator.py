@@ -1,26 +1,42 @@
 from mistralai import Mistral
 from typing import Optional
-from app.config import settings
+from app.config import settings as config_settings
 from app.models.profile import Profile
 from app.models.message import Message
+from app.database import SessionLocal
+from app.models.settings import AppSettings
 
 
 class MessageGenerator:
     def __init__(self):
-        if not settings.mistral_api_key:
+        if not config_settings.mistral_api_key:
             raise ValueError("MISTRAL_API_KEY environment variable is required")
-        self.client = Mistral(api_key=settings.mistral_api_key)
+        self.client = Mistral(api_key=config_settings.mistral_api_key)
+    
+    def _get_company_context(self) -> str:
+        """Get company context from database settings"""
+        db = SessionLocal()
+        try:
+            app_settings = db.query(AppSettings).filter(AppSettings.id == 1).first()
+            if not app_settings:
+                return ""
+            
+            context = ""
+            if app_settings.company_name:
+                context += f"\n\nÀ propos de notre entreprise ({app_settings.company_name}):"
+                if app_settings.company_description:
+                    context += f"\n{app_settings.company_description}"
+                if app_settings.value_proposition:
+                    context += f"\n\nNotre proposition de valeur: {app_settings.value_proposition}"
+            
+            return context
+        finally:
+            db.close()
 
     def generate_connection_message(self, profile: Profile) -> str:
         """Generate a personalized connection message in French"""
-        # Build company context
-        company_context = ""
-        if settings.company_name:
-            company_context += f"\n\nÀ propos de notre entreprise ({settings.company_name}):"
-            if settings.company_description:
-                company_context += f"\n{settings.company_description}"
-            if settings.value_proposition:
-                company_context += f"\n\nNotre proposition de valeur: {settings.value_proposition}"
+        # Get company context from database
+        company_context = self._get_company_context()
         
         prompt = f"""Génère un message de demande de connexion LinkedIn professionnel et personnalisé (max 300 caractères) en français pour:
 
@@ -62,14 +78,8 @@ Retourne uniquement le texte du message, sans commentaire supplémentaire."""
         """Generate a follow-up message in French based on conversation history"""
         previous_content = "\n".join([f"- {msg.content}" for msg in previous_messages])
         
-        # Build company context
-        company_context = ""
-        if settings.company_name:
-            company_context += f"\n\nÀ propos de notre entreprise ({settings.company_name}):"
-            if settings.company_description:
-                company_context += f"\n{settings.company_description}"
-            if settings.value_proposition:
-                company_context += f"\n\nNotre proposition de valeur: {settings.value_proposition}"
+        # Get company context from database
+        company_context = self._get_company_context()
         
         prompt = f"""Génère un message de suivi LinkedIn professionnel (max 300 caractères) en français pour:
 

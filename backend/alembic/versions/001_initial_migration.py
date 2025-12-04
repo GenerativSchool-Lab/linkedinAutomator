@@ -61,6 +61,18 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_messages_id'), 'messages', ['id'], unique=False)
 
+    # Create app_settings table
+    op.create_table('app_settings',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('company_name', sa.String(), nullable=True),
+    sa.Column('company_description', sa.Text(), nullable=True),
+    sa.Column('value_proposition', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_app_settings_id'), 'app_settings', ['id'], unique=False)
+    
     # Create followups table
     op.create_table('followups',
     sa.Column('id', sa.Integer(), nullable=False),
