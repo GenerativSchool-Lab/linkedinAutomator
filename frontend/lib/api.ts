@@ -20,6 +20,8 @@ export interface Connection {
   status: string
   connected_at: string | null
   created_at: string
+  connection_message: string | null
+  connection_message_sent_at: string | null
 }
 
 export interface Message {

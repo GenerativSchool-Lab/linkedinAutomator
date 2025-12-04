@@ -22,6 +22,8 @@ class ConnectionResponse(BaseModel):
     status: str
     connected_at: Optional[str]
     created_at: str
+    connection_message: Optional[str] = None
+    connection_message_sent_at: Optional[str] = None
 
     class Config:
         from_attributes = True
