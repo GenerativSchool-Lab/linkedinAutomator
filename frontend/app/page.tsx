@@ -3,14 +3,26 @@
 import { useEffect, useState } from 'react'
 import { StatsCard } from '@/components/StatsCard'
 import { CSVUpload } from '@/components/CSVUpload'
+import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { Button } from '@/components/ui/button'
-import { getStats, startConnections } from '@/lib/api'
+import { getStats, startConnections, getProfiles } from '@/lib/api'
 import type { Stats } from '@/lib/api'
+import toast from 'react-hot-toast'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 export default function Dashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [pendingProfilesCount, setPendingProfilesCount] = useState(0)
 
   const fetchStats = async () => {
     try {
@@ -30,14 +42,45 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleStartConnections = async () => {
-    setStarting(true)
+  const handleStartConnectionsClick = async (profileIds?: number[]) => {
     try {
-      await startConnections()
-      await fetchStats()
-      alert('Connection process started!')
+      let count: number
+      if (profileIds && profileIds.length > 0) {
+        count = profileIds.length
+      } else {
+        // Get pending profiles count
+        const profiles = await getProfiles('pending')
+        count = profiles.length
+        
+        if (count === 0) {
+          toast.error('No pending profiles to connect. Please upload a CSV file first.')
+          return
+        }
+      }
+
+      setPendingProfilesCount(count)
+      setShowConfirmDialog(true)
     } catch (error) {
-      alert('Failed to start connections: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      toast.error('Failed to check profiles: ' + (error instanceof Error ? error.message : 'Unknown error'))
+    }
+  }
+
+  const handleConfirmStartConnections = async (profileIds?: number[]) => {
+    setShowConfirmDialog(false)
+    setStarting(true)
+    
+    const loadingToast = toast.loading('Starting connection process...')
+    
+    try {
+      await startConnections(profileIds)
+      await fetchStats()
+      toast.success(`Connection process started for ${pendingProfilesCount} profile${pendingProfilesCount > 1 ? 's' : ''}!`, {
+        id: loadingToast
+      })
+    } catch (error) {
+      toast.error('Failed to start connections: ' + (error instanceof Error ? error.message : 'Unknown error'), {
+        id: loadingToast
+      })
     } finally {
       setStarting(false)
     }
@@ -57,7 +100,7 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex gap-4">
           <CSVUpload onUploadComplete={fetchStats} />
-          <Button onClick={handleStartConnections} disabled={starting}>
+          <Button onClick={handleStartConnectionsClick} disabled={starting || loading}>
             {starting ? 'Starting...' : 'Start Connections'}
           </Button>
         </div>
@@ -104,6 +147,10 @@ export default function Dashboard() {
         />
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2">
+        <ConnectionStatus refreshInterval={10} />
+      </div>
+
       <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
         <h3 className="font-semibold text-yellow-800 mb-2">Important Notice</h3>
         <p className="text-sm text-yellow-700">
@@ -111,9 +158,41 @@ export default function Dashboard() {
           Use rate limiting and be respectful of other users. Automated actions may result in account restrictions.
         </p>
       </div>
+
+      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start Connection Process?</DialogTitle>
+            <DialogDescription>
+              You are about to start sending connection requests to {pendingProfilesCount} profile{pendingProfilesCount > 1 ? 's' : ''}.
+              This action will begin the automated connection process.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              The system will:
+            </p>
+            <ul className="list-disc list-inside text-sm text-muted-foreground mt-2 space-y-1">
+              <li>Generate personalized connection messages using AI</li>
+              <li>Send connection requests with rate limiting (45s delay between requests)</li>
+              <li>Track connection status and messages</li>
+              <li>Schedule automatic follow-ups after 7 days</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmStartConnections}>
+              Start Connections
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
 
 
 

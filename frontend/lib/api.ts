@@ -49,16 +49,24 @@ export async function uploadCSV(file: File): Promise<{ message: string; profiles
   const formData = new FormData()
   formData.append('file', file)
 
-  const response = await fetch(`${API_URL}/api/profiles/upload`, {
-    method: 'POST',
-    body: formData,
-  })
+  try {
+    const response = await fetch(`${API_URL}/api/profiles/upload`, {
+      method: 'POST',
+      body: formData,
+    })
 
-  if (!response.ok) {
-    throw new Error('Failed to upload CSV')
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to upload CSV: ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to upload CSV file')
   }
-
-  return response.json()
 }
 
 export async function getProfiles(status?: string, company?: string): Promise<Profile[]> {
@@ -66,11 +74,19 @@ export async function getProfiles(status?: string, company?: string): Promise<Pr
   if (status) params.append('status', status)
   if (company) params.append('company', company)
 
-  const response = await fetch(`${API_URL}/api/profiles?${params.toString()}`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch profiles')
+  try {
+    const response = await fetch(`${API_URL}/api/profiles?${params.toString()}`)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to fetch profiles: ${response.statusText}`)
+    }
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to fetch profiles')
   }
-  return response.json()
 }
 
 export async function getConnections(status?: string): Promise<Connection[]> {
@@ -97,44 +113,69 @@ export async function getMessages(connection_id?: number, message_type?: string)
 }
 
 export async function getStats(): Promise<Stats> {
-  const response = await fetch(`${API_URL}/api/stats`)
-  if (!response.ok) {
-    throw new Error('Failed to fetch stats')
+  try {
+    const response = await fetch(`${API_URL}/api/stats`)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to fetch stats: ${response.statusText}`)
+    }
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to fetch stats')
   }
-  return response.json()
 }
 
 export async function startConnections(profile_ids?: number[]): Promise<{ message: string; profiles_count: number }> {
-  const response = await fetch(`${API_URL}/api/connections/start`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ profile_ids }),
-  })
+  try {
+    const response = await fetch(`${API_URL}/api/connections/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ profile_ids }),
+    })
 
-  if (!response.ok) {
-    throw new Error('Failed to start connections')
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to start connections: ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to start connections')
   }
-
-  return response.json()
 }
 
 export async function sendFollowUp(connection_id: number): Promise<{ message: string }> {
-  const response = await fetch(`${API_URL}/api/messages/send-followup`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ connection_id }),
-  })
+  try {
+    const response = await fetch(`${API_URL}/api/messages/send-followup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ connection_id }),
+    })
 
-  if (!response.ok) {
-    throw new Error('Failed to send follow-up')
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Failed to send follow-up: ${response.statusText}`)
+    }
+
+    return response.json()
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Network error: Failed to send follow-up')
   }
-
-  return response.json()
 }
+
 
 
 

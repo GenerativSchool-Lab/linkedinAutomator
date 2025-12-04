@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import toast from 'react-hot-toast'
 
 export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -34,12 +35,15 @@ export default function MessagesPage() {
   }, [messageTypeFilter, connectionIdFilter])
 
   const handleSendFollowUp = async (connectionId: number) => {
+    const loadingToast = toast.loading('Sending follow-up message...')
     try {
       await sendFollowUp(connectionId)
-      alert('Follow-up message queued!')
+      toast.success('Follow-up message queued!', { id: loadingToast })
       fetchMessages()
     } catch (error) {
-      alert('Failed to send follow-up: ' + (error instanceof Error ? error.message : 'Unknown error'))
+      toast.error('Failed to send follow-up: ' + (error instanceof Error ? error.message : 'Unknown error'), {
+        id: loadingToast
+      })
     }
   }
 
@@ -137,6 +141,7 @@ export default function MessagesPage() {
     </div>
   )
 }
+
 
 
 
