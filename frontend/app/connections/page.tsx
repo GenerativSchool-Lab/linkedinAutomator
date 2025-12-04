@@ -77,6 +77,7 @@ export default function ConnectionsPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium">Profile</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Failure Reason</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Connection Message</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Connected At</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Actions</th>
@@ -85,7 +86,7 @@ export default function ConnectionsPage() {
             <tbody>
               {connections.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     No connections found
                   </td>
                 </tr>
@@ -106,16 +107,18 @@ export default function ConnectionsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="space-y-1">
-                        <StatusBadge status={connection.status} />
-                        {connection.status === 'failed' && connection.failure_reason && (
-                          <div className="text-xs text-red-600 mt-1" title={connection.failure_reason}>
-                            {connection.failure_reason.length > 50
-                              ? `${connection.failure_reason.substring(0, 50)}...`
-                              : connection.failure_reason}
-                          </div>
-                        )}
-                      </div>
+                      <StatusBadge status={connection.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {connection.failure_reason ? (
+                        <div className="text-sm text-red-600" title={connection.failure_reason}>
+                          {connection.failure_reason.length > 60
+                            ? `${connection.failure_reason.substring(0, 60)}...`
+                            : connection.failure_reason}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {connection.connection_message ? (
