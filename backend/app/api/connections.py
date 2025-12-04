@@ -174,6 +174,15 @@ def get_connection(connection_id: int, db: Session = Depends(get_db)):
     if not connection:
         raise HTTPException(status_code=404, detail="Connection not found")
 
+    # Get the initial connection message if it exists
+    connection_message = None
+    connection_message_sent_at = None
+    if connection.connection_message_id:
+        message = db.query(Message).filter(Message.id == connection.connection_message_id).first()
+        if message:
+            connection_message = message.content
+            connection_message_sent_at = message.sent_at.isoformat() if message.sent_at else None
+    
     return ConnectionResponse(
         id=connection.id,
         profile_id=connection.profile_id,
@@ -181,6 +190,8 @@ def get_connection(connection_id: int, db: Session = Depends(get_db)):
         profile_url=connection.profile.linkedin_url,
         status=connection.status.value,
         connected_at=connection.connected_at.isoformat() if connection.connected_at else None,
-        created_at=connection.created_at.isoformat() if connection.created_at else None
+        created_at=connection.created_at.isoformat() if connection.created_at else None,
+        connection_message=connection_message,
+        connection_message_sent_at=connection_message_sent_at
     )
 

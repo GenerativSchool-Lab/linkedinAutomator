@@ -209,7 +209,7 @@ export default function ProfilesPage() {
                             View Profile
                           </Link>
                           <Link
-                            href={`/messages?connection_id=${profile.id}`}
+                            href="/messages"
                             className="text-primary hover:underline text-sm"
                           >
                             Messages

@@ -28,6 +28,7 @@ export default function RootLayout({
               <div className="flex gap-4">
                 <Link href="/" className="hover:underline">Dashboard</Link>
                 <Link href="/profiles" className="hover:underline">Profiles</Link>
+                <Link href="/connections" className="hover:underline">Connections</Link>
                 <Link href="/messages" className="hover:underline">Messages</Link>
                 <Link href="/settings" className="hover:underline">Settings</Link>
               </div>
