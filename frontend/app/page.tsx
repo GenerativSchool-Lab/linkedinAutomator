@@ -100,7 +100,7 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <div className="flex gap-4">
           <CSVUpload onUploadComplete={fetchStats} />
-          <Button onClick={handleStartConnectionsClick} disabled={starting || loading}>
+          <Button onClick={() => handleStartConnectionsClick()} disabled={starting || loading}>
             {starting ? 'Starting...' : 'Start Connections'}
           </Button>
         </div>
