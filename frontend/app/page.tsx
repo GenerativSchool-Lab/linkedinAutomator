@@ -65,14 +65,14 @@ export default function Dashboard() {
     }
   }
 
-  const handleConfirmStartConnections = async (profileIds?: number[]) => {
+  const handleConfirmStartConnections = async () => {
     setShowConfirmDialog(false)
     setStarting(true)
     
     const loadingToast = toast.loading('Starting connection process...')
     
     try {
-      await startConnections(profileIds)
+      await startConnections()
       await fetchStats()
       toast.success(`Connection process started for ${pendingProfilesCount} profile${pendingProfilesCount > 1 ? 's' : ''}!`, {
         id: loadingToast
