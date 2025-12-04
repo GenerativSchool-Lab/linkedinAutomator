@@ -39,6 +39,7 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
         raise HTTPException(status_code=400, detail=f"Error parsing CSV: {str(e)}")
 
     # Try to identify columns (flexible mapping)
+    # Priority order: exact matches first, then partial matches
     url_col = None
     name_col = None
     company_col = None
@@ -48,18 +49,55 @@ async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)
 
     for col in df.columns:
         col_lower = col.lower()
-        if 'url' in col_lower or 'linkedin' in col_lower or 'profile' in col_lower:
-            url_col = col
-        elif 'name' in col_lower or 'full name' in col_lower:
-            name_col = col
-        elif 'company' in col_lower or 'organization' in col_lower:
-            company_col = col
-        elif 'title' in col_lower or 'position' in col_lower or 'role' in col_lower:
-            title_col = col
-        elif 'note' in col_lower or 'comment' in col_lower:
-            notes_col = col
-        elif 'tag' in col_lower:
-            tags_col = col
+        # LinkedIn URL - prioritize linkedinProfileUrl, linkedinProfileUrl, etc.
+        if not url_col:
+            if 'linkedinprofileurl' in col_lower or 'linkedinurl' in col_lower:
+                url_col = col
+            elif ('url' in col_lower or 'linkedin' in col_lower) and 'profile' in col_lower:
+                url_col = col
+            elif 'url' in col_lower and 'linkedin' in col_lower:
+                url_col = col
+        
+        # Name - prioritize fullName, full name, etc.
+        if not name_col:
+            if 'fullname' in col_lower or 'full name' in col_lower:
+                name_col = col
+            elif 'name' in col_lower and 'first' not in col_lower and 'last' not in col_lower:
+                name_col = col
+        
+        # Company - prioritize companyName, company name, etc.
+        if not company_col:
+            if 'companyname' in col_lower or 'company name' in col_lower:
+                company_col = col
+            elif 'company' in col_lower and 'url' not in col_lower and 'slug' not in col_lower:
+                company_col = col
+            elif 'organization' in col_lower:
+                company_col = col
+        
+        # Title - prioritize linkedinJobTitle, job title, etc.
+        if not title_col:
+            if 'linkedinjobtitle' in col_lower or 'jobtitle' in col_lower:
+                title_col = col
+            elif 'title' in col_lower and 'job' in col_lower:
+                title_col = col
+            elif 'title' in col_lower or 'position' in col_lower or 'role' in col_lower:
+                title_col = col
+        
+        # Notes - can use description or headline
+        if not notes_col:
+            if 'note' in col_lower or 'comment' in col_lower:
+                notes_col = col
+            elif 'description' in col_lower and 'job' not in col_lower:
+                notes_col = col
+            elif 'headline' in col_lower:
+                notes_col = col
+        
+        # Tags - skills or tags
+        if not tags_col:
+            if 'tag' in col_lower:
+                tags_col = col
+            elif 'skill' in col_lower:
+                tags_col = col
 
     if not url_col:
         raise HTTPException(status_code=400, detail="CSV must contain a LinkedIn URL column")
