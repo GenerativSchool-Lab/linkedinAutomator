@@ -22,12 +22,6 @@ if settings.allowed_origins == "*":
         "http://localhost:3000",
         "http://localhost:3001",
         "https://linkedin-prospection-agent.vercel.app",  # Production URL
-        "https://linkedin-prospection-agent-djy5zdbv9-chyll.vercel.app",
-        "https://linkedin-prospection-agent-cw0glxlj7-chyll.vercel.app",
-        "https://linkedin-prospection-agent-eituic75a-chyll.vercel.app",
-        "https://linkedin-prospection-agent-mukocvm6p-chyll.vercel.app",
-        "https://linkedin-prospection-agent-pwjhey86b-chyll.vercel.app",
-        "https://linkedin-prospection-agent-hr285ngf4-chyll.vercel.app",
     ]
 else:
     # Parse comma-separated origins
@@ -55,10 +49,13 @@ def is_origin_allowed(origin: str) -> bool:
 
 # Use a more permissive approach: allow all Vercel URLs via regex
 # This allows both production and preview deployments
+# The regex matches:
+# - https://linkedin-prospection-agent.vercel.app (production)
+# - https://linkedin-prospection-agent-*.vercel.app (preview deployments with hash)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https://linkedin-prospection-agent(-[a-z0-9]+)?\.vercel\.app",  # Allow all Vercel URLs for this project (production and preview)
+    allow_origin_regex=r"https://linkedin-prospection-agent.*\.vercel\.app",  # Allow all Vercel URLs for this project (production and preview)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
