@@ -128,6 +128,8 @@ async def start_connections(
     db: Session = Depends(get_db)
 ):
     """Start connection process for profiles"""
+    from datetime import datetime, timedelta
+    
     if request.profile_ids:
         profiles = db.query(Profile).filter(Profile.id.in_(request.profile_ids)).all()
     else:
@@ -139,14 +141,42 @@ async def start_connections(
     if not profiles:
         return {"message": "No profiles to process"}
 
-    # Process connections in background
-    # Note: We need to run async tasks properly
-    for profile in profiles:
-        asyncio.create_task(process_connection(profile.id))
+    # Check daily limit
+    today = datetime.utcnow().date()
+    today_connections = db.query(Connection).filter(
+        Connection.created_at >= datetime.combine(today, datetime.min.time()),
+        Connection.status.in_([ConnectionStatus.CONNECTED, ConnectionStatus.CONNECTING])
+    ).count()
+    
+    if today_connections >= settings.max_connections_per_day:
+        return {
+            "message": f"Daily limit reached ({settings.max_connections_per_day} connections per day). Please try again tomorrow.",
+            "profiles_count": 0,
+            "daily_limit_reached": True
+        }
+    
+    # Limit the number of profiles to process based on daily limit
+    remaining_slots = settings.max_connections_per_day - today_connections
+    profiles_to_process = profiles[:remaining_slots]
+    
+    if len(profiles) > remaining_slots:
+        print(f"Limiting to {remaining_slots} profiles due to daily limit")
+
+    # Process connections sequentially in background to respect rate limits
+    async def process_all_connections():
+        for profile in profiles_to_process:
+            await process_connection(profile.id)
+            # Wait between each connection to respect rate limits
+            await asyncio.sleep(settings.rate_limit_delay)
+    
+    # Start processing in background
+    asyncio.create_task(process_all_connections())
 
     return {
-        "message": f"Started connection process for {len(profiles)} profiles",
-        "profiles_count": len(profiles)
+        "message": f"Started connection process for {len(profiles_to_process)} profiles (rate limited to {settings.rate_limit_delay}s between requests)",
+        "profiles_count": len(profiles_to_process),
+        "daily_connections_used": today_connections,
+        "daily_connections_remaining": remaining_slots
     }
 
 

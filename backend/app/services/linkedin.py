@@ -117,9 +117,29 @@ class LinkedInService:
         await self.ensure_logged_in()
         
         try:
-            # Navigate to profile
-            await self.page.goto(profile_url)
-            await asyncio.sleep(3)
+            # Navigate to profile with timeout and error handling
+            try:
+                response = await self.page.goto(profile_url, wait_until="networkidle", timeout=30000)
+                if response and response.status >= 400:
+                    if response.status == 429:
+                        return (False, "Rate limit exceeded - too many requests")
+                    elif response.status == 403:
+                        return (False, "Access forbidden - account may be restricted")
+                    elif response.status >= 500:
+                        return (False, f"LinkedIn server error: {response.status}")
+            except Exception as nav_error:
+                error_str = str(nav_error).lower()
+                if "net::err_aborted" in error_str or "aborted" in error_str:
+                    return (False, "Request aborted by LinkedIn - possible rate limiting")
+                elif "timeout" in error_str:
+                    return (False, "Navigation timeout - LinkedIn may be slow or blocking")
+                elif "network" in error_str:
+                    return (False, "Network error - check connection")
+                else:
+                    return (False, f"Navigation error: {str(nav_error)[:100]}")
+            
+            # Wait for page to fully load
+            await asyncio.sleep(5)  # Increased wait time for page stability
 
             # Check if already connected (Message button indicates connection)
             if await self.page.query_selector('button:has-text("Message")'):
@@ -150,7 +170,7 @@ class LinkedInService:
                 return (False, "Connect button not found - profile may be restricted or connection not available")
 
             await connect_button.click()
-            await asyncio.sleep(2)
+            await asyncio.sleep(5)  # Increased wait time after clicking Connect
 
             # Check if a modal appeared asking for connection type
             # Sometimes LinkedIn asks "How do you know this person?"
@@ -187,26 +207,42 @@ class LinkedInService:
             
             if send_button:
                 await send_button.click()
-                await asyncio.sleep(2)
+                await asyncio.sleep(5)  # Increased wait time after sending
                 
                 # Check if there was an error message
                 error_message = await self.page.query_selector('.artdeco-inline-feedback--error, .error-message')
                 if error_message:
                     error_text = await error_message.text_content()
+                    # Check for rate limiting messages
+                    if "limit" in error_text.lower() or "too many" in error_text.lower():
+                        return (False, "Rate limit exceeded - too many connection requests")
                     return (False, f"LinkedIn error: {error_text.strip()}")
                 
+                # Check for success indicator
+                success_indicator = await self.page.query_selector('.artdeco-inline-feedback--success, button:has-text("Pending")')
+                if success_indicator:
+                    return (True, None)
+                
+                # If no error, assume success but wait a bit more
+                await asyncio.sleep(2)
                 return (True, None)
             else:
                 return (False, "Send button not found")
 
         except Exception as e:
-            error_msg = str(e)
+            error_msg = str(e).lower()
             # Categorize common errors
-            if "login" in error_msg.lower() or "authentication" in error_msg.lower():
+            if "net::err_aborted" in error_msg or "aborted" in error_msg:
+                return (False, "Request aborted by LinkedIn - possible rate limiting or blocking")
+            elif "login" in error_msg or "authentication" in error_msg:
                 return (False, "Login/authentication failed")
-            elif "timeout" in error_msg.lower() or "network" in error_msg.lower():
+            elif "timeout" in error_msg or "network" in error_msg:
                 return (False, "Network timeout or connection error")
-            elif "not found" in error_msg.lower():
+            elif "429" in error_msg or "rate limit" in error_msg or "too many" in error_msg:
+                return (False, "Rate limit exceeded - too many requests")
+            elif "403" in error_msg or "forbidden" in error_msg:
+                return (False, "Access forbidden - account may be restricted")
+            elif "not found" in error_msg:
                 return (False, f"Profile or element not found: {error_msg}")
             else:
                 return (False, f"Error: {error_msg}")
