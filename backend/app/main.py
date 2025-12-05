@@ -7,8 +7,36 @@ from app.services.scheduler import start_scheduler
 # Import models to ensure they're registered with SQLAlchemy
 from app.models import Profile, Connection, Message, FollowUp, AppSettings
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Run Alembic migrations on startup
+from alembic.config import Config
+from alembic import command
+
+def run_migrations():
+    """Run Alembic migrations"""
+    import os
+    try:
+        # Get the path to alembic.ini (should be in the backend directory)
+        alembic_ini_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
+        if not os.path.exists(alembic_ini_path):
+            # Try current directory
+            alembic_ini_path = "alembic.ini"
+        
+        alembic_cfg = Config(alembic_ini_path)
+        command.upgrade(alembic_cfg, "head")
+        print("Database migrations completed successfully")
+    except Exception as e:
+        print(f"Warning: Could not run migrations: {e}")
+        import traceback
+        traceback.print_exc()
+        # Fallback to create_all if migrations fail
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("Fallback: Created tables using create_all")
+        except Exception as e2:
+            print(f"Error: Could not create tables: {e2}")
+
+# Run migrations on startup
+run_migrations()
 
 app = FastAPI(title="LinkedIn Prospection Agent API", version="1.0.0")
 
