@@ -81,7 +81,7 @@ async def process_connection(profile_id: int):
 
         # Send connection request
         await asyncio.sleep(settings.rate_limit_delay)
-        success, failure_reason = await linkedin_service.send_connection_request(profile.linkedin_url, message_content)
+        success, status_info = await linkedin_service.send_connection_request(profile.linkedin_url, message_content)
 
         if success:
             # Create message record
@@ -95,12 +95,23 @@ async def process_connection(profile_id: int):
             db.refresh(message)
 
             connection.connection_message_id = message.id
-            connection.status = ConnectionStatus.CONNECTED
             connection.failure_reason = None  # Clear any previous failure reason
-            connection.connected_at = db.query(Message).filter(Message.id == message.id).first().sent_at
+            
+            # Differentiate between connection sent (PENDING) and already connected (CONNECTED)
+            if status_info == "already_connected":
+                # Already connected - can send messages
+                connection.status = ConnectionStatus.CONNECTED
+                connection.connected_at = db.query(Message).filter(Message.id == message.id).first().sent_at
+            elif status_info == "pending":
+                # Connection request sent, waiting for acceptance
+                connection.status = ConnectionStatus.PENDING
+                # Don't set connected_at yet - wait for acceptance
+            else:
+                # Default to PENDING if status unclear
+                connection.status = ConnectionStatus.PENDING
         else:
             connection.status = ConnectionStatus.FAILED
-            connection.failure_reason = failure_reason or "Unknown error"
+            connection.failure_reason = status_info or "Unknown error"
 
         db.commit()
     except Exception as e:
@@ -175,6 +186,55 @@ async def start_connections(
     return {
         "message": f"Started connection process for {len(profiles_to_process)} profiles (rate limited to {settings.rate_limit_delay}s between requests)",
         "profiles_count": len(profiles_to_process),
+        "daily_connections_used": today_connections,
+        "daily_connections_remaining": remaining_slots
+    }
+
+
+@router.post("/retry")
+async def retry_connections(
+    connection_ids: Optional[List[int]] = None,
+    db: Session = Depends(get_db)
+):
+    """Retry failed or pending connections"""
+    from datetime import datetime, timedelta
+    
+    # Get connections to retry
+    if connection_ids:
+        connections = db.query(Connection).filter(Connection.id.in_(connection_ids)).all()
+    else:
+        # Retry all failed connections
+        connections = db.query(Connection).filter(
+            Connection.status == ConnectionStatus.FAILED
+        ).all()
+    
+    if not connections:
+        return {"message": "No connections to retry", "retried_count": 0}
+    
+    # Check daily limit
+    today = datetime.utcnow().date()
+    today_connections = db.query(Connection).filter(
+        Connection.created_at >= datetime.combine(today, datetime.min.time()),
+        Connection.status.in_([ConnectionStatus.CONNECTED, ConnectionStatus.CONNECTING, ConnectionStatus.PENDING])
+    ).count()
+    
+    remaining_slots = settings.max_connections_per_day - today_connections
+    connections_to_retry = connections[:remaining_slots]
+    
+    if len(connections) > remaining_slots:
+        print(f"Limiting retry to {remaining_slots} connections due to daily limit")
+    
+    # Process retries sequentially
+    async def retry_all_connections():
+        for conn in connections_to_retry:
+            await process_connection(conn.profile_id)
+            await asyncio.sleep(settings.rate_limit_delay)
+    
+    asyncio.create_task(retry_all_connections())
+    
+    return {
+        "message": f"Retrying {len(connections_to_retry)} connections",
+        "retried_count": len(connections_to_retry),
         "daily_connections_used": today_connections,
         "daily_connections_remaining": remaining_slots
     }

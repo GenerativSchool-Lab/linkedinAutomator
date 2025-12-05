@@ -142,13 +142,14 @@ class LinkedInService:
             await asyncio.sleep(5)  # Increased wait time for page stability
 
             # Check if already connected (Message button indicates connection)
-            if await self.page.query_selector('button:has-text("Message")'):
-                return (True, None)  # Already connected, consider it success
+            message_button = await self.page.query_selector('button:has-text("Message")')
+            if message_button:
+                return (True, "already_connected")  # Already connected, can send messages
             
-            # Check for "Pending" status
-            pending_indicator = await self.page.query_selector('button:has-text("Pending"), span:has-text("Pending")')
+            # Check for "Pending" status (connection request sent but not accepted yet)
+            pending_indicator = await self.page.query_selector('button:has-text("Pending"), span:has-text("Pending"), button[aria-label*="Pending"]')
             if pending_indicator:
-                return (False, "Connection request already pending")
+                return (True, "pending")  # Connection request sent, waiting for acceptance
 
             # Look for Connect button
             connect_button = await self.page.query_selector('button:has-text("Connect")')
