@@ -61,7 +61,7 @@ def is_origin_allowed(origin: str) -> bool:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https://linkedin-prospection-agent.*\.vercel\.app|https://linkedin-prospection-agent\.vercel\.app",  # Allow all Vercel URLs for this project
+    allow_origin_regex=r"https://linkedin-prospection-agent(-[a-z0-9]+)?\.vercel\.app",  # Allow all Vercel URLs for this project (production and preview)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
