@@ -34,6 +34,10 @@ class StartConnectionRequest(BaseModel):
     profile_ids: Optional[List[int]] = None  # If None, process all pending profiles
 
 
+class RetryConnectionRequest(BaseModel):
+    connection_ids: Optional[List[int]] = None  # If None, retry all failed connections
+
+
 async def process_connection(profile_id: int):
     """Background task to process a single connection"""
     db = SessionLocal()
@@ -194,15 +198,15 @@ async def start_connections(
 
 @router.post("/retry")
 async def retry_connections(
-    connection_ids: Optional[List[int]] = None,
+    request: RetryConnectionRequest,
     db: Session = Depends(get_db)
 ):
     """Retry failed or pending connections"""
     from datetime import datetime, timedelta
     
     # Get connections to retry
-    if connection_ids:
-        connections = db.query(Connection).filter(Connection.id.in_(connection_ids)).all()
+    if request.connection_ids:
+        connections = db.query(Connection).filter(Connection.id.in_(request.connection_ids)).all()
     else:
         # Retry all failed connections
         connections = db.query(Connection).filter(
