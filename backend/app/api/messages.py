@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db, SessionLocal
-from app.models.connection import Connection
+from app.models.connection import Connection, ConnectionStatus
 from app.models.message import Message, MessageType
 from app.models.followup import FollowUp, FollowUpStatus
 from app.services.linkedin import linkedin_service

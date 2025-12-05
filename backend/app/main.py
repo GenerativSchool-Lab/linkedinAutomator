@@ -24,6 +24,7 @@ if settings.allowed_origins == "*":
     allowed_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "https://linkedin-prospection-agent.vercel.app",  # Production URL
         "https://linkedin-prospection-agent-djy5zdbv9-chyll.vercel.app",
         "https://linkedin-prospection-agent-cw0glxlj7-chyll.vercel.app",
         "https://linkedin-prospection-agent-eituic75a-chyll.vercel.app",
@@ -60,7 +61,7 @@ def is_origin_allowed(origin: str) -> bool:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_origin_regex=r"https://linkedin-prospection-agent.*\.vercel\.app",  # Allow all Vercel URLs for this project
+    allow_origin_regex=r"https://linkedin-prospection-agent.*\.vercel\.app|https://linkedin-prospection-agent\.vercel\.app",  # Allow all Vercel URLs for this project
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

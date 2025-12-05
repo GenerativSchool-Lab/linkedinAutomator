@@ -4,7 +4,7 @@ from sqlalchemy import func, case
 from app.database import get_db
 from app.models.profile import Profile
 from app.models.connection import Connection, ConnectionStatus
-from app.models.message import Message
+from app.models.message import Message, MessageType
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -44,11 +44,11 @@ def get_stats(db: Session = Depends(get_db)):
     total_messages = db.query(Message).count()
     
     initial_messages = db.query(Message).filter(
-        Message.message_type == "initial"
+        Message.message_type == MessageType.INITIAL
     ).count()
     
     followup_messages = db.query(Message).filter(
-        Message.message_type == "followup"
+        Message.message_type == MessageType.FOLLOWUP
     ).count()
     
     # Calculate response rate (connections that received follow-ups / total connected)
@@ -57,7 +57,7 @@ def get_stats(db: Session = Depends(get_db)):
     if connections_connected > 0:
         connections_with_followups = db.query(Connection).join(Message).filter(
             Connection.status == ConnectionStatus.CONNECTED,
-            Message.message_type == "followup"
+            Message.message_type == MessageType.FOLLOWUP
         ).distinct().count()
         response_rate = (connections_with_followups / connections_connected) * 100
 
