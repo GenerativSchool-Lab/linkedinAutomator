@@ -42,9 +42,10 @@ async def process_connection(profile_id: int):
         if not profile:
             return
 
-        # Check if connection already exists
+        # Check if connection already exists and is connected
         existing = db.query(Connection).filter(Connection.profile_id == profile_id).first()
         if existing and existing.status == ConnectionStatus.CONNECTED:
+            # Already connected, no need to retry
             return
 
         # Create or update connection
